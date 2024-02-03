@@ -21,7 +21,7 @@ namespace RayMarcher.Shading
   {
     protected Material() { }
 
-    public float Reflectivity { get; set; } = 0.001f;
+    public float Reflectivity { get; set; } = 0.0f;
 
     abstract public Color Shade(Hit hit, vec3 lightDir, vec3 viewDir);
 

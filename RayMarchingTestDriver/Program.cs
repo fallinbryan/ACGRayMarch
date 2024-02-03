@@ -44,22 +44,24 @@ namespace RayMarchingTestDriver
       {
         DiffuseColor = Color.Red,
         SpecularColor = Color.LightGray,
-        SpecularExponent = 32.0f
+        SpecularExponent = 32.0f,
+        Reflectivity = 0.0f
       };
 
       Plane plane = new Plane();
       plane.Origin = new vec3(0.0f, 0.0f, -2.0f);
       plane.Normal = new vec3(0.0f, 0.0f, 1.0f);
-      plane.Material = new Mirror
-      {
-        Color = Color.LightGreen
-      };
-      //plane.Material = new PhongMaterial()
+      //plane.Material = new Mirror
       //{
-      //  DiffuseColor = Color.DarkGreen,
-      //  SpecularColor = Color.LightGray,
-      //  SpecularExponent = 32.0f
+      //  Color = Color.LightGreen
       //};
+      plane.Material = new PhongMaterial()
+      {
+        DiffuseColor = Color.DarkGreen,
+        SpecularColor = Color.LightGray,
+        SpecularExponent = 32.0f,
+        Reflectivity = 1.0f
+      };
 
 
       Tri tri = new Tri();
@@ -79,7 +81,7 @@ namespace RayMarchingTestDriver
         new List<IRenderObject> {
           sphere, 
           plane, 
-         // tri
+          tri
         }, 
         new List<ILightSource> { new SunLamp() { Direction = new vec3(2.0f, -1.0f, 1.0f)}},
         LightingModel.Phong,

@@ -33,7 +33,7 @@ namespace RayMarcher
     private float _epsilon = 0.0001f;
     private Camera _cam;
     private int _maxRayMarchSteps = 100;
-    private int _maxBounceSteps = 4;
+    private int _maxBounceSteps = 2;
     private LightingModel _lModel;
     private bool _debug = false;
     private float _bias = 0.0002f;
@@ -132,58 +132,68 @@ namespace RayMarcher
       if (rayMarch(ray, ref sdfo)) {
 
         MarchRecursionParams mrp = updateRecursionParam(sdfo, ray);
-        Shading.Color newColor = mrp.Color;
+        Shading.Color currentColor = mrp.Color;
         if (_enableShadows)
         {
-          newColor = addShadows(newColor, sdfo, ray);
+          currentColor = addShadows(currentColor, sdfo, ray);
         }
-        accumulateBounceColor(mrp.Ray, 1, ref newColor);
-        
-        //float ed = mrp != null ? mrp.HitObj.HitObj.Material.Reflectivity : 1.0f;
-        //newColor = newColor * ed;
 
-        newColor.CorrectGamma();
-        return newColor;
+        if (mrp.Hit.ObjectHit.Material.Reflectivity > 0.0f)
+        {
+         currentColor += getBounceColor(mrp.Ray, 1) * mrp.Hit.ObjectHit.Material.Reflectivity;
+          //currentColor *= mrp.Hit.ObjectHit.Material.Reflectivity;
+        }
+
+
+        currentColor.CorrectGamma();
+        return currentColor;
 
       } 
       return bgColor;
     }
 
 
-    private void accumulateBounceColor(Ray ray, int recursionDepth, ref Shading.Color color)
+    private Color getBounceColor(Ray ray, int recursionDepth)
     {
       
-      Shading.Color newColor = Color.Black;
+      Color color = bgColor;
+      
       SDFInfo sdfo = new SDFInfo { Distance = 0.0f, ObjectIndex = 0 };
 
       if(_enableShadows) 
       {
-        newColor = addShadows(newColor, sdfo, ray);
+        color = addShadows(color, sdfo, ray);
       } 
 
       if (recursionDepth > _maxBounceSteps)
       {
-        return;
+        return color;
       }
 
-      MarchRecursionParams mrp = null;
+     
 
       if (rayMarch(ray, ref sdfo))
       {
 
-        mrp = updateRecursionParam(sdfo, ray);
-      
-        accumulateBounceColor(mrp.Ray, recursionDepth + 1, ref newColor);
+        MarchRecursionParams mrp = updateRecursionParam(sdfo, ray);
 
+        if(mrp.Hit.ObjectHit.Material.Reflectivity == 0.0f)
+        {
+          color = mrp.Color;
+          return color;
+        }
+      
+        color += getBounceColor(mrp.Ray, recursionDepth + 1);
+
+        float ed = mrp.Hit.ObjectHit.Material.Reflectivity;
+        color += mrp.Color * ed;
       
       }
 
-      float ed = mrp != null ? mrp.Hit.ObjectHit.Material.Reflectivity : 0.001f;
-      color += newColor * ed;
       
 
       
-      return;
+      return color;
     }
 
     private Color addShadows(Color newColor, SDFInfo sdfo, Ray ray)
