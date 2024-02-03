@@ -4,8 +4,6 @@ using RayMarcher.Renderable;
 using RayMarcher.Shading;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 
@@ -35,7 +33,7 @@ namespace RayMarcher
     private int _maxRayMarchSteps = 100;
     private int _maxBounceSteps = 2;
     private LightingModel _lModel;
-    private bool _debug = false;
+    private bool _debug = true;
     private float _bias = 0.0002f;
 
     private Color bgColor;
@@ -48,11 +46,11 @@ namespace RayMarcher
     private List<ILightSource> _lightSources = new List<ILightSource>();
 
     public Scene(
-       Camera cam, 
-       List<IRenderObject> objects, 
-       List<ILightSource> lightSources, 
-       LightingModel lModel, 
-       Color bgColor,  
+       Camera cam,
+       List<IRenderObject> objects,
+       List<ILightSource> lightSources,
+       LightingModel lModel,
+       Color bgColor,
        bool debug = false
       )
     {
@@ -68,14 +66,14 @@ namespace RayMarcher
       this.bgColor = bgColor;
     }
 
-    private SDFInfo unionAllSDF(vec3 p) 
+    private SDFInfo unionAllSDF(vec3 p)
     {
       float minDist = float.MaxValue;
       int mindex = 0;
-      for(int i = 0; i < _objects.Count; i++)
+      for (int i = 0; i < _objects.Count; i++)
       {
         float dist = _objects[i].SDF(p);
-        if(dist < minDist)
+        if (dist < minDist)
         {
           minDist = dist;
           mindex = i;
@@ -83,7 +81,7 @@ namespace RayMarcher
       }
       return new SDFInfo() { Distance = minDist, ObjectIndex = mindex };
 
-    } 
+    }
 
     bool rayMarch(Ray ray, ref SDFInfo sdfo)
     {
@@ -91,7 +89,7 @@ namespace RayMarcher
       for (int i = 0; i < _maxRayMarchSteps; i++)
       {
         SDFInfo d = unionAllSDF(ray.Origin + ray.Direction * sdfo.Distance);
-        sdfo.Distance +=  d.Distance;
+        sdfo.Distance += d.Distance;
         if (d.Distance < _epsilon)
         {
           sdfo.ObjectIndex = d.ObjectIndex;
@@ -110,7 +108,7 @@ namespace RayMarcher
         Position = ray.Origin + ray.Direction * sdfo.Distance,
         ObjectHit = _objects[sdfo.ObjectIndex]
       };
-      
+
       return hit;
     }
 
@@ -120,7 +118,16 @@ namespace RayMarcher
 
       Color color = getShadedColor(ray, hit, sdfo.Distance, _objects);
 
-      ray = reflect(ray, hit);
+      if (hit.ObjectHit.Material.Transimission > 0.0f)
+      {
+        ray.Origin = hit.Position + _bias * hit.Normal;
+        ray.Direction = ray.Direction;// vec3.Refract(ray.Direction, hit.Normal, 1.0f / hit.ObjectHit.Material.RefractiveIndex);
+      }
+      else if (hit.ObjectHit.Material.Reflectivity > 0.0f)
+      {
+
+        ray = reflect(ray, hit);
+      }
 
       return new MarchRecursionParams { Hit = hit, Ray = ray, Color = color };
     }
@@ -129,7 +136,8 @@ namespace RayMarcher
     {
       SDFInfo sdfo = new SDFInfo { Distance = 0.0f, ObjectIndex = 0 };
 
-      if (rayMarch(ray, ref sdfo)) {
+      if (rayMarch(ray, ref sdfo))
+      {
 
         MarchRecursionParams mrp = updateRecursionParam(sdfo, ray);
         Shading.Color currentColor = mrp.Color;
@@ -140,66 +148,76 @@ namespace RayMarcher
 
         if (mrp.Hit.ObjectHit.Material.Reflectivity > 0.0f)
         {
-         currentColor += getBounceColor(mrp.Ray, 1) * mrp.Hit.ObjectHit.Material.Reflectivity;
+          currentColor += getBounceColor(mrp.Ray, 1) * mrp.Hit.ObjectHit.Material.Reflectivity;
           //currentColor *= mrp.Hit.ObjectHit.Material.Reflectivity;
+        }
+        if (mrp.Hit.ObjectHit.Material.Transimission > 0.0f)
+        {
+          currentColor += getBounceColor(mrp.Ray, 1) * mrp.Hit.ObjectHit.Material.Transimission;
         }
 
 
         currentColor.CorrectGamma();
         return currentColor;
 
-      } 
+      }
       return bgColor;
     }
 
 
     private Color getBounceColor(Ray ray, int recursionDepth)
     {
-      
+
       Color color = bgColor;
-      
+
       SDFInfo sdfo = new SDFInfo { Distance = 0.0f, ObjectIndex = 0 };
 
-      if(_enableShadows) 
-      {
-        color = addShadows(color, sdfo, ray);
-      } 
+  
 
       if (recursionDepth > _maxBounceSteps)
       {
         return color;
       }
 
-     
+
 
       if (rayMarch(ray, ref sdfo))
       {
 
         MarchRecursionParams mrp = updateRecursionParam(sdfo, ray);
 
-        if(mrp.Hit.ObjectHit.Material.Reflectivity == 0.0f)
+        if (mrp.Hit.ObjectHit.Material.Transimission > 0.0f)
+        {
+          color += getBounceColor(mrp.Ray, 1) * mrp.Hit.ObjectHit.Material.Transimission;
+        }
+        else if (mrp.Hit.ObjectHit.Material.Reflectivity == 0.0f)
         {
           color = mrp.Color;
           return color;
         }
-      
-        color += getBounceColor(mrp.Ray, recursionDepth + 1);
+        else
+        {
+          color += getBounceColor(mrp.Ray, recursionDepth + 1);
 
-        float ed = mrp.Hit.ObjectHit.Material.Reflectivity;
-        color += mrp.Color * ed;
-      
+          float ed = mrp.Hit.ObjectHit.Material.Reflectivity;
+          color += mrp.Color * ed;
+        }
+
       }
 
-      
+      if (_enableShadows)
+      {
+        color = addShadows(color, sdfo, ray);
+      }
 
-      
+
       return color;
     }
 
     private Color addShadows(Color newColor, SDFInfo sdfo, Ray ray)
     {
-      
-      foreach(ILightSource lightSource in _lightSources)
+
+      foreach (ILightSource lightSource in _lightSources)
       {
         if (checkForShadow(sdfo, ray, lightSource))
         {
@@ -226,17 +244,17 @@ namespace RayMarcher
         }
       }
       return false;
-      
+
     }
 
     private Ray reflect(Ray ray, Hit hit)
     {
-      
+
       ray.Origin = hit.Position + _bias * hit.Normal;
-      ray.Direction = vec3.Reflect(ray.Direction, hit.Normal); 
+      ray.Direction = vec3.Reflect(ray.Direction, hit.Normal);
       return ray;
-    } 
- 
+    }
+
     private Color getShadedColor(Ray ray, Hit hit, float dist, List<IRenderObject> objects)
     {
       Shading.Color color;
@@ -275,7 +293,7 @@ namespace RayMarcher
     private Color getPhongColor(Hit hit, vec3 lightDir, vec3 viewDir)
     {
       //TODO: SUM ALL LIGHTS IN SCENE 
-      
+
       return hit.ObjectHit.Material.Shade(hit, lightDir, viewDir);
     }
 
@@ -288,9 +306,9 @@ namespace RayMarcher
     {
       int bufferLength = imgBuffer.Length;
       uint[] tbuffer = new uint[bufferLength];
-      if(_debug)
+      if (_debug)
       {
-        for(int i = 0; i < bufferLength; i++)
+        for (int i = 0; i < bufferLength; i++)
         {
           int x = i % (int)_cam.ViewPort.x;
           int y = i / (int)_cam.ViewPort.x;
@@ -300,9 +318,10 @@ namespace RayMarcher
           Shading.Color color = getColor(ray);
           tbuffer[i] = color.ToUint();
         }
-      } else
+      }
+      else
       {
-        Parallel.For(0, bufferLength, (i) =>   
+        Parallel.For(0, bufferLength, (i) =>
         {
           int x = i % (int)_cam.ViewPort.x;
           int y = i / (int)_cam.ViewPort.x;
@@ -314,12 +333,12 @@ namespace RayMarcher
         });
       }
 
-      tbuffer.CopyTo(imgBuffer,0);
+      tbuffer.CopyTo(imgBuffer, 0);
     }
-  
+
     private void dubugBreak(vec2 pixel)
     {
-     if(_debug)
+      if (_debug)
       {
         if (
           pixel.x <= (_cam.ViewPort.x * 0.5) + 10 &&
@@ -331,7 +350,7 @@ namespace RayMarcher
           bool defbuggerHere = true;
         }
       }
-      
+
     }
 
   }

@@ -1,19 +1,13 @@
-﻿using System;
+﻿
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Threading;
+
 using RayMarcher;
 using RayMarcher.Renderable;
 using RayMarcher.Shading;
 using RayMarcher.Lighting;
 
 using GlmSharp;
-using System.Security.AccessControl;
-using System.ComponentModel;
-using System.Globalization;
-using System.Security.Cryptography;
+
 
 namespace RayMarchingTestDriver
 {
@@ -73,7 +67,8 @@ namespace RayMarchingTestDriver
       {
         DiffuseColor = Color.Blue,
         SpecularColor = Color.LightGray,
-        SpecularExponent = 32.0f
+        SpecularExponent = 32.0f,
+        Transimission = 0.1f,
       };
 
       Scene scene = new Scene(
