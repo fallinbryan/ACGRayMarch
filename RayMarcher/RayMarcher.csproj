@@ -34,6 +34,9 @@
     <Reference Include="GlmSharp, Version=0.9.8.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\GlmSharp.0.9.8\lib\Net45\GlmSharp.dll</HintPath>
     </Reference>
+    <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\packages\Newtonsoft.Json.13.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
@@ -47,11 +50,14 @@
     <Compile Include="Camera.cs" />
     <Compile Include="Compute.cs" />
     <Compile Include="Hit.cs" />
+    <Compile Include="LightingObjectConverter.cs" />
     <Compile Include="Lighting\ILightSource.cs" />
     <Compile Include="Lighting\SunLamp.cs" />
+    <Compile Include="MaterialConverter.cs" />
     <Compile Include="Renderable\IRenderObject.cs" />
     <Compile Include="Renderable\Plane.cs" />
     <Compile Include="Renderable\Tri.cs" />
+    <Compile Include="RenderObjectConverter.cs" />
     <Compile Include="Shading\Color.cs" />
     <Compile Include="Shading\Material.cs" />
     <Compile Include="Shading\PBRMaterial.cs" />

@@ -26,6 +26,8 @@ namespace RayMarcher.Renderable
     private vec3 _normal;
     private float _dotNorm;
 
+    public RenderObjectType Type { get { return RenderObjectType.Triangle; } }
+
     public Material Material { get; set; }
     public vec3 A { get; set; }
     public vec3 B { get; set; }

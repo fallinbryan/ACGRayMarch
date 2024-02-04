@@ -12,6 +12,8 @@ namespace RayMarcher.Renderable
   {
     private vec3 _normal;
 
+    public RenderObjectType Type { get { return RenderObjectType.Plane; } }
+
     public Material Material { get; set; }
     
     public vec3 Origin { get; set; }

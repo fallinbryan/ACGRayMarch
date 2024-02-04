@@ -1,10 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net;
-using System.Text;
-using System.Threading.Tasks;
+﻿
 using GlmSharp;
+using System;
 
 namespace RayMarcher.Shading
 {
@@ -17,6 +13,12 @@ namespace RayMarcher.Shading
     CookTorrance
   }
 
+  public enum MaterialType
+  {
+    Phong,
+    PBR
+  }
+
   public abstract class Material
   {
     protected Material() { }
@@ -25,6 +27,7 @@ namespace RayMarcher.Shading
     public float Transimission { get; set; } = 0.0f;
     public float RefractiveIndex { get; set; } = 1.0f;
 
+    abstract public MaterialType Type { get; }
     abstract public Color Shade(Hit hit, vec3 lightDir, vec3 viewDir);
 
   }

@@ -10,6 +10,8 @@ namespace RayMarcher.Renderable
 {
   public class Sphere : IRenderObject
   {
+    public RenderObjectType Type { get { return RenderObjectType.Sphere; } }
+
     public vec3 Origin { get; set; }
     
     public float Radius { get; set; }

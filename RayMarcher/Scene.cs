@@ -5,6 +5,8 @@ using RayMarcher.Shading;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
+using System.Runtime.Serialization;
 
 
 
@@ -29,21 +31,36 @@ namespace RayMarcher
   {
     private Object _lockObj = new object();
     private float _epsilon = 0.0001f;
-    private Camera _cam;
+
+
+    private bool _enableShadows = true;
     private int _maxRayMarchSteps = 100;
     private int _maxBounceSteps = 2;
-    private LightingModel _lModel;
-    private bool _debug = true;
     private float _bias = 0.0002f;
 
-    private Color bgColor;
-    private bool _enableShadows = true;
 
     private bool debug_mirror = false;
 
+    [JsonProperty]
+    public Camera _cam;
 
-    private List<IRenderObject> _objects = new List<IRenderObject>();
-    private List<ILightSource> _lightSources = new List<ILightSource>();
+    [JsonProperty]
+    public LightingModel _lModel;
+
+    [JsonProperty]
+    public bool _debug = true;
+
+    [JsonProperty]
+    public Color bgColor;
+
+    [JsonConverter(typeof(RenderObjectConverter))]
+    public List<IRenderObject> _objects = new List<IRenderObject>();
+   
+
+    [JsonConverter(typeof(LightingObjectConverter))]
+    public List<ILightSource> _lightSources = new List<ILightSource>();
+
+    public Scene() { }
 
     public Scene(
        Camera cam,
@@ -64,6 +81,41 @@ namespace RayMarcher
       }
       _debug = debug;
       this.bgColor = bgColor;
+    }
+
+    
+    public Scene(
+      Camera cam,
+      List<IRenderObject> objects,
+      List<ILightSource> lightSources,
+      LightingModel lModel,
+      Color bgColor,
+      bool debug = false,
+      bool enableShadows = true,
+      int maxRayMarchSteps = 100,
+      int maxBounceSteps = 2,
+      float bias = 0.0002f
+    )
+    {
+      _objects = objects;
+      _lightSources = lightSources;
+      _cam = cam;
+      _lModel = lModel;
+      _debug = debug;
+      this.bgColor = bgColor;
+      _enableShadows = enableShadows;
+      _maxRayMarchSteps = maxRayMarchSteps;
+      _maxBounceSteps = maxBounceSteps;
+      _bias = bias;
+    }
+
+    [OnDeserialized]
+    internal void OnDeserialized(StreamingContext context)
+    {
+      foreach (var obj in _objects)
+      {
+        obj.Init();
+      }
     }
 
     private SDFInfo unionAllSDF(vec3 p)
@@ -172,7 +224,7 @@ namespace RayMarcher
 
       SDFInfo sdfo = new SDFInfo { Distance = 0.0f, ObjectIndex = 0 };
 
-  
+
 
       if (recursionDepth > _maxBounceSteps)
       {
@@ -353,5 +405,9 @@ namespace RayMarcher
 
     }
 
+    public vec2 GetViewport()
+    {
+      return new vec2(_cam.ViewPort.x, _cam.ViewPort.y);
+    }
   }
 }

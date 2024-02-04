@@ -16,6 +16,8 @@ namespace RayMarcher.Shading
     public float IOR { get; set; }
     public vec4 Emission { get; set; }
 
+    public override MaterialType Type { get { return MaterialType.PBR; } }
+
     public override Color Shade(Hit hit, vec3 lightDir, vec3 viewDir)
     {
       throw new NotImplementedException();

@@ -11,6 +11,8 @@ namespace RayMarcher.Lighting
   public class SunLamp : ILightSource
   {
     private vec3 _direction = new vec3(0, -1, 0);
+    
+    public LightType Type { get { return LightType.Directional; } }
 
     public vec3 Direction
     {
