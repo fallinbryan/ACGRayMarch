@@ -43,6 +43,11 @@ namespace RayMarcher.Shading
       set { _value.a = value; }
     }
 
+    public override string ToString()
+    {
+      return $"Color: R: {r} G: {g} B: {b} A: {a}";
+    }
+
 
     public static Color Blue => new Color { Value = new vec4(0.0f, 0.0f, 1.0f, 1.0f) };
     public static Color Green => new Color { Value = new vec4(0.0f, 1.0f, 0.0f, 1.0f) };
@@ -158,6 +163,16 @@ namespace RayMarcher.Shading
     public static Color operator *(Color c1, float val)
     {
       return new Color { Value = c1.Value * val };
+    }
+
+    public static bool operator ==(Color c1, Color c2)
+    {
+      return c1.Value == c2.Value;
+    }
+
+    public static bool operator !=(Color c1, Color c2)
+    {
+      return c1.Value == c2.Value;
     }
 
   }

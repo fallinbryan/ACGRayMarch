@@ -1,12 +1,13 @@
 ﻿using GlmSharp;
+using Newtonsoft.Json;
 using RayMarcher.Lighting;
 using RayMarcher.Renderable;
 using RayMarcher.Shading;
 using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
-using Newtonsoft.Json;
 using System.Runtime.Serialization;
+using System.Text;
+using System.Threading.Tasks;
 
 
 
@@ -29,102 +30,101 @@ namespace RayMarcher
 
   public class Scene
   {
-    private Object _lockObj = new object();
     private float _epsilon = 0.0001f;
-
-
     private bool _enableShadows = true;
     private int _maxRayMarchSteps = 100;
-    private int _maxBounceSteps = 2;
-    private float _bias = 0.0002f;
+    private int _maxBounceSteps = 3;
+    private float _bias = 0.01f;
 
-
-    private bool debug_mirror = false;
-
-    [JsonProperty]
-    public Camera _cam;
+    private StringBuilder _debugLog = new StringBuilder();
 
     [JsonProperty]
-    public LightingModel _lModel;
+    public Camera Cam;
 
     [JsonProperty]
-    public bool _debug = true;
+    public LightingModel LModel;
 
     [JsonProperty]
-    public Color bgColor;
+    public bool Debug = true;
+
+    [JsonProperty]
+    public Color BGColor;
 
     [JsonConverter(typeof(RenderObjectConverter))]
-    public List<IRenderObject> _objects = new List<IRenderObject>();
+    public List<IRenderObject> Objects = new List<IRenderObject>();
    
 
     [JsonConverter(typeof(LightingObjectConverter))]
-    public List<ILightSource> _lightSources = new List<ILightSource>();
+    public List<ILightSource> LightSources = new List<ILightSource>();
 
     public Scene() { }
 
-    public Scene(
-       Camera cam,
-       List<IRenderObject> objects,
-       List<ILightSource> lightSources,
-       LightingModel lModel,
-       Color bgColor,
-       bool debug = false
-      )
-    {
-      _objects = objects;
-      _lightSources = lightSources;
-      _cam = cam;
-      _lModel = lModel;
-      foreach (var obj in _objects)
-      {
-        obj.Init();
-      }
-      _debug = debug;
-      this.bgColor = bgColor;
-    }
-
     
-    public Scene(
-      Camera cam,
-      List<IRenderObject> objects,
-      List<ILightSource> lightSources,
-      LightingModel lModel,
-      Color bgColor,
-      bool debug = false,
-      bool enableShadows = true,
-      int maxRayMarchSteps = 100,
-      int maxBounceSteps = 2,
-      float bias = 0.0002f
-    )
-    {
-      _objects = objects;
-      _lightSources = lightSources;
-      _cam = cam;
-      _lModel = lModel;
-      _debug = debug;
-      this.bgColor = bgColor;
-      _enableShadows = enableShadows;
-      _maxRayMarchSteps = maxRayMarchSteps;
-      _maxBounceSteps = maxBounceSteps;
-      _bias = bias;
-    }
-
     [OnDeserialized]
     internal void OnDeserialized(StreamingContext context)
     {
-      foreach (var obj in _objects)
+      foreach (var obj in Objects)
       {
         obj.Init();
       }
+    }
+
+    private void writeDebugLogToFile()
+    {
+      string fname = $"debugLog_{DateTime.Now.Ticks}.txt";
+      System.IO.File.WriteAllText(fname, _debugLog.ToString());
+      _debugLog.Clear();
+      
+    }
+
+    public void UpdateImageBuffer(ref uint[] imgBuffer)
+    {
+      int bufferLength = imgBuffer.Length;
+      uint[] tbuffer = new uint[bufferLength];
+      if (Debug)
+      {
+        for (int i = 0; i < bufferLength; i++)
+        {
+          int x = i % (int)Cam.ViewPort.x;
+          int y = i / (int)Cam.ViewPort.x;
+          vec2 pixel = new vec2(x, y);
+          Ray ray = Cam.GetRay(pixel);
+          debugBreak(pixel);
+          DebugLog("Pixel: " + pixel.ToString());
+          DebugLog("Ray Origin: " + ray.Origin.ToString() + " Ray Direction: " + ray.Direction.ToString());
+          Color color = getColorRecursive(ray, 1, "IMG Debug");
+          tbuffer[i] = color.ToUint();
+        }
+        writeDebugLogToFile();
+      }
+      else
+      {
+        Parallel.For(0, bufferLength, (i) =>
+        {
+          int x = i % (int)Cam.ViewPort.x;
+          int y = i / (int)Cam.ViewPort.x;
+          vec2 pixel = new vec2(x, y);
+          Ray ray = Cam.GetRay(pixel);
+          Color color = getColorRecursive(ray, 1, "IMG Parallel");
+          tbuffer[i] = color.ToUint();
+        });
+      }
+
+      tbuffer.CopyTo(imgBuffer, 0);
+    }
+
+    public vec2 GetViewport()
+    {
+      return new vec2(Cam.ViewPort.x, Cam.ViewPort.y);
     }
 
     private SDFInfo unionAllSDF(vec3 p)
     {
       float minDist = float.MaxValue;
       int mindex = 0;
-      for (int i = 0; i < _objects.Count; i++)
+      for (int i = 0; i < Objects.Count; i++)
       {
-        float dist = _objects[i].SDF(p);
+        float dist = Objects[i].SDF(p);
         if (dist < minDist)
         {
           minDist = dist;
@@ -137,12 +137,13 @@ namespace RayMarcher
 
     bool rayMarch(Ray ray, ref SDFInfo sdfo)
     {
+      
       sdfo.Distance = 0;
       for (int i = 0; i < _maxRayMarchSteps; i++)
       {
-        SDFInfo d = unionAllSDF(ray.Origin + ray.Direction * sdfo.Distance);
+        SDFInfo d = unionAllSDF(ray.Origin + ray.Direction * (Math.Abs(sdfo.Distance) > 1 ? Math.Abs(sdfo.Distance) : 1.0f));
         sdfo.Distance += d.Distance;
-        if (d.Distance < _epsilon)
+        if (Math.Abs(d.Distance) < _epsilon)
         {
           sdfo.ObjectIndex = d.ObjectIndex;
           sdfo.Distance = sdfo.Distance;
@@ -152,151 +153,168 @@ namespace RayMarcher
       return false;
     }
 
+
+
     private Hit getHit(SDFInfo sdfo, Ray ray)
     {
       Hit hit = new Hit
       {
         Distance = sdfo.Distance,
         Position = ray.Origin + ray.Direction * sdfo.Distance,
-        ObjectHit = _objects[sdfo.ObjectIndex]
+        ObjectHit = Objects[sdfo.ObjectIndex]
       };
 
       return hit;
     }
 
-    private MarchRecursionParams updateRecursionParam(SDFInfo sdfo, Ray ray)
+
+
+    private Color getColorRecursive(Ray ray, int recursionDepth, string caller)
     {
-      Hit hit = getHit(sdfo, ray);
-
-      Color color = getShadedColor(ray, hit, sdfo.Distance, _objects);
-
-      if (hit.ObjectHit.Material.Transimission > 0.0f)
-      {
-        ray.Origin = hit.Position + _bias * hit.Normal;
-        ray.Direction = ray.Direction;// vec3.Refract(ray.Direction, hit.Normal, 1.0f / hit.ObjectHit.Material.RefractiveIndex);
-      }
-      else if (hit.ObjectHit.Material.Reflectivity > 0.0f)
-      {
-
-        ray = reflect(ray, hit);
-      }
-
-      return new MarchRecursionParams { Hit = hit, Ray = ray, Color = color };
-    }
-
-    private Shading.Color getColor(Ray ray)
-    {
-      SDFInfo sdfo = new SDFInfo { Distance = 0.0f, ObjectIndex = 0 };
-
-      if (rayMarch(ray, ref sdfo))
-      {
-
-        MarchRecursionParams mrp = updateRecursionParam(sdfo, ray);
-        Shading.Color currentColor = mrp.Color;
-        if (_enableShadows)
-        {
-          currentColor = addShadows(currentColor, sdfo, ray);
-        }
-
-        if (mrp.Hit.ObjectHit.Material.Reflectivity > 0.0f)
-        {
-          currentColor += getBounceColor(mrp.Ray, 1) * mrp.Hit.ObjectHit.Material.Reflectivity;
-          //currentColor *= mrp.Hit.ObjectHit.Material.Reflectivity;
-        }
-        if (mrp.Hit.ObjectHit.Material.Transimission > 0.0f)
-        {
-          currentColor += getBounceColor(mrp.Ray, 1) * mrp.Hit.ObjectHit.Material.Transimission;
-        }
-
-
-        currentColor.CorrectGamma();
-        return currentColor;
-
-      }
-      return bgColor;
-    }
-
-
-    private Color getBounceColor(Ray ray, int recursionDepth)
-    {
-
-      Color color = bgColor;
-
-      SDFInfo sdfo = new SDFInfo { Distance = 0.0f, ObjectIndex = 0 };
-
-
-
+      DebugLog($"getColorRecursive. Caller: {caller} Recursion Depth: {recursionDepth}" );
       if (recursionDepth > _maxBounceSteps)
       {
-        return color;
+        DebugLog("Max Bounce Steps Reached");
+        return Color.Black;
       }
 
-
-
-      if (rayMarch(ray, ref sdfo))
+      SDFInfo sdfo = new SDFInfo { Distance = 0.0f, ObjectIndex = 0 };
+      if(!rayMarch(ray, ref sdfo))
       {
-
-        MarchRecursionParams mrp = updateRecursionParam(sdfo, ray);
-
-        if (mrp.Hit.ObjectHit.Material.Transimission > 0.0f)
+        if(recursionDepth == 1)
         {
-          color += getBounceColor(mrp.Ray, 1) * mrp.Hit.ObjectHit.Material.Transimission;
+          DebugLog("No Hit, returning BGColor");
+          return BGColor;
         }
-        else if (mrp.Hit.ObjectHit.Material.Reflectivity == 0.0f)
-        {
-          color = mrp.Color;
-          return color;
-        }
-        else
-        {
-          color += getBounceColor(mrp.Ray, recursionDepth + 1);
-
-          float ed = mrp.Hit.ObjectHit.Material.Reflectivity;
-          color += mrp.Color * ed;
-        }
-
+        DebugLog("No Hit, returning Black");
+        return Color.Black;
       }
 
-      if (_enableShadows)
-      {
-        color = addShadows(color, sdfo, ray);
-      }
+      Hit hit = getHit(sdfo, ray);
+      DebugLog($"Hit: {hit.Position} Dist: {hit.Distance} Object: {hit.ObjectHit.Type}");
+      Color color = getShadedColor(ray, hit, sdfo.Distance, Objects);
+   
+    
 
+      color *= getShadowFactor(hit);
 
-      return color;
+      Color reflectedColor = getReflectiveColor(ray, hit, recursionDepth);
+      DebugLog($"Reflected Color: {reflectedColor}");
+
+      Color transmittedColor = getTrasmittedColor(ray, hit, recursionDepth);
+      DebugLog($"Transmitted Color: {transmittedColor}");
+
+   
+      Color finalColor = color + reflectedColor + transmittedColor;
+      DebugLog($"Final Color: {finalColor}");
+
+    
+
+      finalColor.CorrectGamma();
+      return finalColor;
+
     }
 
-    private Color addShadows(Color newColor, SDFInfo sdfo, Ray ray)
+    private Color getTrasmittedColor(Ray ray, Hit hit, int recursionDepth)
     {
-
-      foreach (ILightSource lightSource in _lightSources)
+      Color transmittedColor = Color.Black;
+      if (hit.ObjectHit.Material.Transimission > 0.0f)
       {
-        if (checkForShadow(sdfo, ray, lightSource))
+        DebugLog($"Material has Transmission");
+        
+        int s =  Math.Sign(hit.Distance);
+        float IOR = getIOR(hit, ray.Direction, s);
+
+        vec3 refracteDir = vec3.Refract(ray.Direction, s*hit.Normal, IOR);
+
+        DebugLog($"Incident Ray: {ray}\nSign Adjusted Hit Normal: {s*hit.Normal}\nRefraction Dir: {refracteDir}");
+
+        if(refracteDir == vec3.Zero)
         {
-          newColor *= 0.5f;
+          return Color.Black;
         }
+
+        Ray refractedRay = new Ray
+        {
+          Origin = hit.Position + _bias * hit.Normal*s,
+          Direction = refracteDir
+        };
+
+        transmittedColor = getColorRecursive(refractedRay, recursionDepth + 1, "TXColor") * hit.ObjectHit.Material.Transimission;
+
+        //float cosTheta = Math.Max(0.0f,vec3.Dot(-ray.Direction, hit.Normal));
+        //float fresnel = getFresnel(cosTheta, IOR);
+        //transmittedColor *= (1.0f - fresnel);
+        DebugLog($"getTrasmittedColor Completed. Recursion Depth {recursionDepth}");
       }
-      return newColor;
+      return transmittedColor;
     }
 
-    private bool checkForShadow(SDFInfo sdfo, Ray ray, ILightSource lightSource)
+
+    private float getIOR(Hit hit, vec3 incomingDir, int sign)
     {
-      vec3 shadowCheckOrigin = ray.Origin;
-      vec3 shadowCheckDirection = lightSource.Direction;
-
-      Ray shadowRay = new Ray { Origin = shadowCheckOrigin, Direction = shadowCheckDirection };
-      SDFInfo shadowSDFInfo = new SDFInfo { Distance = 0.0f, ObjectIndex = 0 };
-
-      if (rayMarch(shadowRay, ref shadowSDFInfo))
+      float refractionIndex = hit.ObjectHit.Material.RefractiveIndex;
+      if (vec3.Dot(incomingDir, sign*hit.Normal) > 0.0f)
       {
-        float distanceToLight = float.MaxValue;
-        if (shadowSDFInfo.Distance < distanceToLight)
+        return  refractionIndex;
+      }
+      return 1.0f / refractionIndex;
+      
+    }
+    private float getFresnel(float cosTheta, float iOR)
+    {
+      // Schlick's approximation
+      float r0 = (1.0f - iOR) / (1.0f + iOR);
+      r0 = r0 * r0;
+      return r0 + (1.0f - r0) * (float)Math.Pow(1.0f - cosTheta, 5);
+    }
+
+    private Color getReflectiveColor(Ray ray, Hit hit, int recursionDepth)
+    {
+      Color reflectedColor = Color.Black;
+      if (hit.ObjectHit.Material.Reflectivity > 0.0f)
+      {
+        Ray reflectedRay = reflect(ray, hit);
+        reflectedColor = getColorRecursive(reflectedRay, recursionDepth + 1, "RflColor") * hit.ObjectHit.Material.Reflectivity;
+      }
+      return reflectedColor;
+    }
+
+ 
+
+    private float getShadowFactor(Hit hit)
+    {
+      float shadowFactor = 1.0f;
+
+      if(_enableShadows == false)
+      {
+        return shadowFactor;
+      }
+
+      vec3 shadowCheckOrigin = hit.Position + _bias * hit.Normal;
+
+      foreach (ILightSource lightSource in LightSources)
+      {
+        vec3 shadowCheckDirection = lightSource.Direction;
+        Ray shadowRay = new Ray { Origin = shadowCheckOrigin, Direction = shadowCheckDirection };
+        SDFInfo shadowSDFInfo = new SDFInfo { Distance = 0.0f, ObjectIndex = 0 };
+        
+        if (rayMarch(shadowRay, ref shadowSDFInfo))
         {
-          return true;
+          Hit shadowHit = getHit(shadowSDFInfo, shadowRay);
+          float distanceToLight = float.MaxValue;
+          if (shadowSDFInfo.Distance < distanceToLight)
+          {
+            shadowFactor = 0.4f;
+
+            if (shadowHit.ObjectHit.Material.Transimission > 0.0f)
+            {
+              shadowFactor = 0.8f;
+            }
+          }
         }
       }
-      return false;
-
+      return shadowFactor;
     }
 
     private Ray reflect(Ray ray, Hit hit)
@@ -309,105 +327,41 @@ namespace RayMarcher
 
     private Color getShadedColor(Ray ray, Hit hit, float dist, List<IRenderObject> objects)
     {
-      Shading.Color color;
-      switch (_lModel)
-      {
-        case Shading.LightingModel.Lambert:
-          color = getLambertColor(ray, hit.Distance, _objects);
-          break;
-        case Shading.LightingModel.Phong:
-          vec3 viewDir = (_cam.Position - hit.Position).Normalized;
-          color = getPhongColor(hit, _lightSources[0].Direction /*light dir*/, viewDir);
-          break;
-        case Shading.LightingModel.BlinnPhong:
-          color = getBlinnPhongColor(ray, hit.Distance, _objects);
-          break;
-        case Shading.LightingModel.CookTorrance:
-          color = getCookTorranceColor(ray, hit.Distance, _objects);
-          break;
-        default:
-          color = bgColor;
-          break;
-      }
+      Color color;
+      vec3 viewDir = (Cam.Position - hit.Position).Normalized;
+      vec3 lightDir = LightSources[0].Direction;
+
+      color = hit.ObjectHit.Material.Shade(hit, lightDir, viewDir);
+
       return color;
     }
 
-    private Color getCookTorranceColor(Ray ray, float dist, List<IRenderObject> objects)
+    private void debugBreak(vec2 pixel)
     {
-      throw new NotImplementedException();
-    }
-
-    private Color getBlinnPhongColor(Ray ray, float dist, List<IRenderObject> objects)
-    {
-      throw new NotImplementedException();
-    }
-
-    private Color getPhongColor(Hit hit, vec3 lightDir, vec3 viewDir)
-    {
-      //TODO: SUM ALL LIGHTS IN SCENE 
-
-      return hit.ObjectHit.Material.Shade(hit, lightDir, viewDir);
-    }
-
-    private Color getLambertColor(Ray ray, float dist, List<IRenderObject> objects)
-    {
-      throw new NotImplementedException();
-    }
-
-    public void UpdateImageBuffer(ref uint[] imgBuffer)
-    {
-      int bufferLength = imgBuffer.Length;
-      uint[] tbuffer = new uint[bufferLength];
-      if (_debug)
-      {
-        for (int i = 0; i < bufferLength; i++)
-        {
-          int x = i % (int)_cam.ViewPort.x;
-          int y = i / (int)_cam.ViewPort.x;
-          vec2 pixel = new vec2(x, y);
-          Ray ray = _cam.GetRay(pixel);
-          dubugBreak(pixel);
-          Shading.Color color = getColor(ray);
-          tbuffer[i] = color.ToUint();
-        }
-      }
-      else
-      {
-        Parallel.For(0, bufferLength, (i) =>
-        {
-          int x = i % (int)_cam.ViewPort.x;
-          int y = i / (int)_cam.ViewPort.x;
-          vec2 pixel = new vec2(x, y);
-          Ray ray = _cam.GetRay(pixel);
-          dubugBreak(pixel);
-          Shading.Color color = getColor(ray);
-          tbuffer[i] = color.ToUint();
-        });
-      }
-
-      tbuffer.CopyTo(imgBuffer, 0);
-    }
-
-    private void dubugBreak(vec2 pixel)
-    {
-      if (_debug)
+      if (Debug)
       {
         if (
-          pixel.x <= (_cam.ViewPort.x * 0.5) + 10 &&
-          pixel.y <= (_cam.ViewPort.y * 0.5) + 10 &&
-          pixel.x >= (_cam.ViewPort.x * 0.5) - 10 &&
-          pixel.y >= (_cam.ViewPort.y * 0.5) - 10
+          pixel.x <= (Cam.ViewPort.x * 0.5) + 10 &&
+          pixel.y <= (Cam.ViewPort.y * 0.5) + 10 &&
+          pixel.x >= (Cam.ViewPort.x * 0.5) - 10 &&
+          pixel.y >= (Cam.ViewPort.y * 0.5) - 10
           )
         {
-          bool defbuggerHere = true;
+          DebugLog("Center of Image");
         }
       }
 
     }
 
-    public vec2 GetViewport()
+    private void DebugLog(string message)
     {
-      return new vec2(_cam.ViewPort.x, _cam.ViewPort.y);
+      if (Debug)
+      {
+        //Console.WriteLine(message);
+        _debugLog.AppendLine(message);
+      }
     }
+
+
   }
 }

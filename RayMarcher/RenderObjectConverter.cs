@@ -24,7 +24,6 @@ namespace RayMarcher
 
       List<IRenderObject> renderObjects = new List<IRenderObject>();
 
-      Object obj = null;
       foreach(var jsonObject in jar) { 
         RenderObjectType type = jsonObject["Type"].ToObject<RenderObjectType>();
         switch (type)

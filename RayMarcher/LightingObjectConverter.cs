@@ -12,7 +12,6 @@ namespace RayMarcher
   {
     public override bool CanConvert(Type objectType)
     {
-      bool debughere = true;
       return objectType == typeof(Lighting.ILightSource);
     }
 

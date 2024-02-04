@@ -22,6 +22,11 @@ namespace RayMarcher
         
       }
     }
+    public override string ToString()
+    {
+      return $"Ray: Origin: {Origin} Direction: {Direction}";
+    }
   }
+
 
 }

@@ -38,7 +38,12 @@ namespace RayMarcher
       vec3 norm = new vec3(nx, ny, nz);
 
       return norm.Normalized;
-    } 
-   
+    }
+
+    public override string ToString()
+    {
+      return $"Hit: Pos: {Position} Dist: {Distance} Surface Normal: {Normal} ObjectHit: {ObjectHit.Type}";
+    }
+
   }
 }
