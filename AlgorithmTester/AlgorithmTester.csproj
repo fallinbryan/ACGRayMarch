@@ -4,16 +4,17 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{EB05FF60-8337-4406-A246-1D3A7291993D}</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>RayMarcher</RootNamespace>
-    <AssemblyName>RayMarcher</AssemblyName>
+    <ProjectGuid>{47626E9F-5265-417A-AB6D-BF889859CAF9}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>AlgorithmTester</RootNamespace>
+    <AssemblyName>AlgorithmTester</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Deterministic>true</Deterministic>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
@@ -23,6 +24,7 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
     <OutputPath>bin\Release\</OutputPath>
@@ -34,9 +36,6 @@
     <Reference Include="GlmSharp, Version=0.9.8.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\GlmSharp.0.9.8\lib\Net45\GlmSharp.dll</HintPath>
     </Reference>
-    <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
-      <HintPath>..\packages\Newtonsoft.Json.13.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
-    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
@@ -47,29 +46,22 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Camera.cs" />
-    <Compile Include="Compute.cs" />
-    <Compile Include="Hit.cs" />
-    <Compile Include="LightingObjectConverter.cs" />
-    <Compile Include="Lighting\ILightSource.cs" />
-    <Compile Include="Lighting\SunLamp.cs" />
-    <Compile Include="MaterialConverter.cs" />
-    <Compile Include="RayUtils.cs" />
-    <Compile Include="Renderable\IRenderObject.cs" />
-    <Compile Include="Renderable\Plane.cs" />
-    <Compile Include="Renderable\Tri.cs" />
-    <Compile Include="RenderObjectConverter.cs" />
-    <Compile Include="Shading\Color.cs" />
-    <Compile Include="Shading\Material.cs" />
-    <Compile Include="Shading\PBRMaterial.cs" />
-    <Compile Include="Shading\PhongMaterial.cs" />
-    <Compile Include="Ray.cs" />
-    <Compile Include="Scene.cs" />
+    <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Renderable\Sphere.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="App.config" />
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\RayMarcher\RayMarcher.csproj">
+      <Project>{eb05ff60-8337-4406-a246-1d3a7291993d}</Project>
+      <Name>RayMarcher</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\RayMarchingTestDriver\RayMarchingTestDriver.csproj">
+      <Project>{85c4a377-6636-4417-8257-86735e69d854}</Project>
+      <Name>RayMarchingTestDriver</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

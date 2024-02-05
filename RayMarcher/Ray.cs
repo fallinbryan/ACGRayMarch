@@ -1,9 +1,4 @@
 ﻿using GlmSharp;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace RayMarcher
 {
@@ -18,7 +13,9 @@ namespace RayMarcher
       get { return _direction; }
       set
       {
-        _direction = value.Normalized;
+        _direction = value;
+        if(_direction != vec3.Zero) _direction = value.Normalized;
+        
         
       }
     }

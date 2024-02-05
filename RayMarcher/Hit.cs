@@ -26,14 +26,16 @@ namespace RayMarcher
       } 
     }
 
+    public bool IsFrontFace { get { return Distance > 0.0f; } }
+
     private vec3 estimateNormal()
     {
-      float eps = 0.001f;
+      float eps = 0.0001f;
 
-      float d = ObjectHit.SDF(Position);
-      float nx = ObjectHit.SDF(Position + new vec3(eps, 0, 0)) - d;
-      float ny = ObjectHit.SDF(Position + new vec3(0, eps, 0)) - d;
-      float nz = ObjectHit.SDF(Position + new vec3(0, 0, eps)) - d;
+      float d = _hitObj.SDF(Position);
+      float nx = _hitObj.SDF(Position + new vec3(eps, 0, 0)) - d;
+      float ny = _hitObj.SDF(Position + new vec3(0, eps, 0)) - d;
+      float nz = _hitObj.SDF(Position + new vec3(0, 0, eps)) - d;
 
       vec3 norm = new vec3(nx, ny, nz);
 

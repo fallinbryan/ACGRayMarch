@@ -14,6 +14,7 @@ namespace RayMarchingTestDriver
     static void Main(string[] args)
     {
 
+      //string sceneJson = System.IO.File.ReadAllText("TSphereOnPlane.json");
       string sceneJson = System.IO.File.ReadAllText("scene.json");
       Scene scene = JsonConvert.DeserializeObject<Scene>(sceneJson);
 

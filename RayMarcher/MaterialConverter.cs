@@ -1,8 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using RayMarcher.Shading;
@@ -26,6 +23,8 @@ namespace RayMarcher
           return jsonObject.ToObject<PhongMaterial>(serializer);
         case MaterialType.PBR:
           return jsonObject.ToObject<PBRMaterial>(serializer);
+        case MaterialType.Translucent:
+          return jsonObject.ToObject<TranslucentMaterial>(serializer);
         default:
           throw new JsonSerializationException("Unknown MaterialType");
       }

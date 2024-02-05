@@ -1,10 +1,6 @@
 ﻿using GlmSharp;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.Remoting.Messaging;
-using System.Text;
-using System.Threading.Tasks;
+
 
 namespace RayMarcher.Shading
 {
@@ -29,8 +25,20 @@ namespace RayMarcher.Shading
       return basecolor;
     }
 
- 
+    public static PhongMaterial GlassMaterial(Color color)
+    {
+      return new PhongMaterial
+      {
+        DiffuseColor = color,
+        SpecularColor = Color.White,
+        SpecularExponent = 100,
+        Ambient = 0.1f,
+        Ior = 1.5f,
+        Transimission = 1.0f,
+      };
+    }
 
- 
+
+
   }
 }
