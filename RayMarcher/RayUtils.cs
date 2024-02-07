@@ -198,11 +198,11 @@ namespace RayMarcher
           Log($"Shadow ray hit: {shadowHit}");
           if (shadowHit.ObjectHit.Material is TranslucentMaterial)
           {
-            shadowFactor *= 0.2f;
+            shadowFactor *= 0.55f;
           }
           else
           {
-            shadowFactor *= 0.55f;
+            shadowFactor *= 0.25f;
           }
         }
       }
