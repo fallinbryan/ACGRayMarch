@@ -6,7 +6,6 @@ using RayMarcher.Shading;
 using System;
 using System.Collections.Generic;
 using System.Runtime.Serialization;
-using System.Text;
 using System.Threading.Tasks;
 
 
@@ -35,9 +34,7 @@ namespace RayMarcher
     private float _epsilon = 1.0e-3f;
     private bool _enableShadows = true;
     private int _maxRayMarchSteps = 800;
-    private int _maxBounceSteps = 64;
-
-    private StringBuilder _debugLog = new StringBuilder();
+    private int _maxBounceSteps = 8;
 
     [JsonProperty]
     public Camera Cam;
@@ -84,13 +81,19 @@ namespace RayMarcher
         {
           int x = i % (int)Cam.ViewPort.x;
           int y = i / (int)Cam.ViewPort.x;
+          if (x == 429 && y == 201)
+          {
+            RayUtils.PrintDebug = true;
+            Console.WriteLine("Break");
+          }
           vec2 pixel = new vec2(x, y);
           Ray ray = Cam.GetRay(pixel);
+          ray.Name = $"{pixel}";
           debugBreak(pixel);
           RayUtils.Log("Pixel: " + pixel.ToString());
-          RayUtils.Log("Ray Origin: " + ray.Origin.ToString() + " Ray Direction: " + ray.Direction.ToString());
-          //Color color = getColorRecursive(ray, 1, "IMG Debug");
-          Color color = GetColorV2(ray);
+         
+         
+          Color color = GetColor(ray);
           tbuffer[i] = color.ToUint();
         }
         RayUtils.WriteLog();
@@ -100,15 +103,16 @@ namespace RayMarcher
       }
       else
       {
-        Parallel.For(0, bufferLength, (i) =>
+        ParallelOptions options = new ParallelOptions { MaxDegreeOfParallelism = 16 };
+        Parallel.For(0, bufferLength, options, (i) =>
         {
           int x = i % (int)Cam.ViewPort.x;
           int y = i / (int)Cam.ViewPort.x;
           vec2 pixel = new vec2(x, y);
           Ray ray = Cam.GetRay(pixel);
-          //Color color = getColorRecursive(ray, 1, "IMG Parallel");
+          
      
-          Color color = GetColorV2(ray);
+          Color color = GetColor(ray);
           color.CorrectGamma();
           tbuffer[i] = color.ToUint();
      
@@ -141,7 +145,7 @@ namespace RayMarcher
 
     }
 
-    private Color GetColorV2(Ray ray) 
+    private Color GetColor(Ray ray) 
     {
         RenderParameters rp = new RenderParameters
         {
@@ -162,7 +166,7 @@ namespace RayMarcher
         };
 
 
-        return RayUtils.GetColorRecursive(rp, 1);
+        return RayUtils.GetColorRecursive(rp, 1, "Scene.GetColor");
     } 
 
    

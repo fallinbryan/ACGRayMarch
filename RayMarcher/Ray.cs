@@ -19,9 +19,10 @@ namespace RayMarcher
         
       }
     }
+    public string Name { get; set; } = "Unamed";
     public override string ToString()
     {
-      return $"Ray: Origin: {Origin} Direction: {Direction}";
+      return $"{Name}_Ray-> Origin: {Origin}; Direction: {Direction}";
     }
   }
 

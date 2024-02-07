@@ -14,6 +14,7 @@ namespace RayMarcher
     private IRenderObject _hitObj;
 
     public float Distance { get; set; }
+    public float TotalHitDistance { get; set; }
     public vec3 Position { get; set; }
     public vec3 Normal { 
       get { 
@@ -25,8 +26,9 @@ namespace RayMarcher
         _normal = estimateNormal();
       } 
     }
+    public string Name { get; set; } = "Unamed";
 
-    public bool IsFrontFace { get { return Distance > 0.0f; } }
+    public bool IsFrontFace { get; set; }
 
     private vec3 estimateNormal()
     {
@@ -44,7 +46,7 @@ namespace RayMarcher
 
     public override string ToString()
     {
-      return $"Hit: Pos: {Position} Dist: {Distance} Surface Normal: {Normal} ObjectHit: {ObjectHit.Type}";
+      return $"{Name}_Hit->Pos: {Position}; Dist: {Distance}; Total Hit Dist: {TotalHitDistance}; Surface Normal: {Normal}; ObjectHit: {ObjectHit.Type}";
     }
 
   }

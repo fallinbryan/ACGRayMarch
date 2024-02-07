@@ -64,6 +64,48 @@ namespace RayMarcher
 
     public static bool RayMarch(MarchingParameters mp, out Hit hit)
     {
+      Log("Ray March");
+      Log($"{mp.Ray}");
+      float totalDist = 0.0f;
+      float maxDist = 500.0f;
+      float epsilon = 0.001f;
+      vec3 p = mp.Ray.Origin;
+      int step = 0;
+      bool isInside = false;  
+      while (step < mp.MaxSteps)
+      {
+        Hit h = unionAllSDF(p, mp.Objects);
+        float dist = h.Distance;
+        if (Math.Abs(dist) > maxDist)
+        {
+          Log($"No hit found after {dist} exceeded {maxDist} on step {step}");
+          hit = null;
+          return false;
+        }
+        if (Math.Abs(dist) < epsilon)
+        {
+          hit = h;
+          h.IsFrontFace = !isInside;
+          string facing = isInside ? "inside face" : "outside face";
+          hit.TotalHitDistance = Math.Abs(totalDist);
+          hit.Name = $"{mp.Ray.Name}";
+          Log($"{hit} on step {step} facing {facing}\n");
+          return true;
+        }
+        isInside = dist < 0.0f;
+        totalDist +=  isInside ?  -dist: dist;
+        step++;
+        p = mp.Ray.Origin + mp.Ray.Direction * totalDist;
+
+      }
+
+      hit = null;
+      return false;
+    }
+
+    public static bool RayMarchV2(MarchingParameters mp, out Hit hit)
+    {
+
       float totalDist = 0.0f;
       float maxDist = 100.0f;
       vec3 p = mp.Ray.Origin;
@@ -72,28 +114,29 @@ namespace RayMarcher
         Hit h = unionAllSDF(p, mp.Objects);
         totalDist += h.Distance;
         
-        if (Math.Abs(h.Distance) > maxDist)
+        if (h.Distance > maxDist)
         {
-
+          Log($":( No hit found after {h.Distance} exceeded {maxDist} on step {i}");
           hit = null;
           return false;
         }
-        if (Math.Abs(h.Distance) < mp.Epsilon)
+        if (h.Distance < mp.Epsilon)
         {
           hit = h;
-          Log($"\n!!!!{hit}\n");
+
+          Log($"\n! XD {hit} on step {i}\n");
           return true;
         }
         p = mp.Ray.Origin + mp.Ray.Direction * totalDist;
       }
       hit = null;
-      Log($"No hit found after {mp.MaxSteps} steps");
+      Log($":( No hit found after {mp.MaxSteps} steps");
       return false;
     }
 
-    public static Color GetColorRecursive(RenderParameters rp, int depth)
+    public static Color GetColorRecursive(RenderParameters rp, int depth, string calledBy)
     {
-      Log($"GetColorRecursive: depth: {depth}");
+      Log($"GetColorRecursive: depth: {depth} calledBy {calledBy}");
       Color color = rp.BackGroundColor;
       Color reflectionColor = Color.Black;
       Color transmissionColor = Color.Black;
@@ -102,7 +145,6 @@ namespace RayMarcher
         return color;
       }
       Hit hit;
-      Log($"Incoming ray: {rp.MarchingParameters.Ray}");
       if (RayMarch(rp.MarchingParameters, out hit))
       {
         color = GetShadedColor(hit, rp.Lights, rp.Camera);
@@ -149,10 +191,19 @@ namespace RayMarcher
         Ray shadowRay = new Ray();
         shadowRay.Origin = hit.Position + bias * hit.Normal;
         shadowRay.Direction = light.Direction;
+        shadowRay.Name = "Shadow";
         Hit shadowHit;
         if (RayMarch(new MarchingParameters { Ray = shadowRay, Objects = objects, MinDist = 0.01f, Epsilon = 0.001f, MaxSteps = 100 }, out shadowHit))
         {
-          shadowFactor *= 0.55f;
+          Log($"Shadow ray hit: {shadowHit}");
+          if (shadowHit.ObjectHit.Material is TranslucentMaterial)
+          {
+            shadowFactor *= 0.2f;
+          }
+          else
+          {
+            shadowFactor *= 0.55f;
+          }
         }
       }
       return shadowFactor;
@@ -165,10 +216,11 @@ namespace RayMarcher
       float attenuation = 0.9f;
       Ray incidentRay = rp.MarchingParameters.Ray;
       Ray reflectionRay = new Ray();
-      reflectionRay.Origin = hit.Position + 0.01f * hit.Normal;
+      reflectionRay.Origin = hit.Position + 0.001f * hit.Normal;
       reflectionRay.Direction = vec3.Reflect(incidentRay.Direction, hit.Normal);
+      reflectionRay.Name = $"{rp.MarchingParameters.Ray.Name} Reflection";
 
-      Log($"Reflection: incidentRay: {incidentRay} reflectionRay: {reflectionRay}");
+      Log($"{reflectionRay}");
 
       color = GetColorRecursive(
         new RenderParameters
@@ -188,7 +240,7 @@ namespace RayMarcher
           Camera = rp.Camera,
           UseShadows = rp.UseShadows
         },
-       recursionDepth + 1);
+       recursionDepth + 1, "GetReflectionColor");
       color *= hit.ObjectHit.Material.Reflectivity * attenuation;
 
       return color;
@@ -208,13 +260,10 @@ namespace RayMarcher
 
       
       
-      transmissionDirection = vec3.Refract(incidentRay.Direction, hit.Normal, Ior);
+      transmissionDirection = vec3.Refract(-incidentRay.Direction, hit.Normal, Ior);
       
-      float cosTheta = Math.Min(vec3.Dot(-incidentRay.Direction, hit.Normal), 1.0f);
-      //float sinTheta = (float)Math.Sqrt(1.0f - cosTheta * cosTheta);
-      
-      //bool isTotalInternalReflection = Ior * sinTheta > 1.0f;
-      float reflectance = SchlickReflectanceApproximation(cosTheta, Ior);
+    
+      float fresnel = GetFresnel(-incidentRay.Direction, hit.Normal, Ior);
      
       
       if (transmissionDirection == vec3.Zero )
@@ -235,10 +284,11 @@ namespace RayMarcher
       Ray transmissionRay = new Ray()
       {
         Origin = transmissionOrigin,
-        Direction = transmissionDirection
+        Direction = transmissionDirection,
+        Name = $"{rp.MarchingParameters.Ray.Name} Transmission"
       };
 
-      Log($"Transmission: incidentRay: {incidentRay} transmissionRay: {transmissionRay}");
+      Log($"{transmissionRay}");
 
       Color color = GetColorRecursive(
                new RenderParameters
@@ -258,11 +308,11 @@ namespace RayMarcher
                  Camera = rp.Camera,
                  UseShadows = rp.UseShadows
                },
-                     recursionDepth + 1);
+                     recursionDepth + 1, "GetTransmissionColor");
 
 
 
-      return color * (1.0f - reflectance) * hit.ObjectHit.Material.Transimission;
+      return color * (1.0f - fresnel) * hit.ObjectHit.Material.Transimission;
     }
 
     public static float SchlickReflectanceApproximation(float cosTheta, float ior)
@@ -270,6 +320,31 @@ namespace RayMarcher
       float r0 = (1 - ior) / (1 + ior);
       r0 = r0 * r0;
       return r0 + (1 - r0) * (float)Math.Pow((1 - cosTheta), 5);
+    }
+
+    public static float GetFresnel(vec3 I, vec3 N, float ior)
+    {
+      float cosi = Math.Max(-1, Math.Min(1, vec3.Dot(I, N)));
+      float etai = 1, etat = ior;
+      if (cosi > 0)
+      {
+        float temp = etai;
+        etai = etat;
+        etat = temp;
+      }
+      float sint = etai / etat * (float)Math.Sqrt(Math.Max(0, 1 - cosi * cosi));
+      if (sint >= 1)
+      {
+        return 1;
+      }
+      else
+      {
+        float cost = (float)Math.Sqrt(Math.Max(0, 1 - sint * sint));
+        cosi = Math.Abs(cosi);
+        float Rs = ((etat * cosi) - (etai * cost)) / ((etat * cosi) + (etai * cost));
+        float Rp = ((etai * cosi) - (etat * cost)) / ((etai * cosi) + (etat * cost));
+        return (Rs * Rs + Rp * Rp) / 2;
+      }
     }
 
     public static vec3 Refract(vec3 I, vec3 N, float eta)
